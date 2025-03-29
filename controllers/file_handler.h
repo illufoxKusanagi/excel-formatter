@@ -4,6 +4,7 @@
 #include "xlsxdocument.h"
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileDialog>
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QMessageBox>

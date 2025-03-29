@@ -49,12 +49,9 @@ void FileHandler::procesFile(QString filePath) {
     }
   }
   if (!m_isCanceled) {
-    QDir dir("F:/matkul/sem_6/AppProject/trainLoggerFormatter/output");
-    if (!dir.exists()) {
-      dir.mkpath(".");
-    }
-    bool saveSuccess = m_xlsx->saveAs(
-        "F:/matkul/sem_6/AppProject/trainLoggerFormatter/output/output.xlsx");
+    QString filePath = QFileDialog::getSaveFileName(
+        nullptr, "Save File", "output.xlsx", "Excel Files (*.xlsx)");
+    bool saveSuccess = m_xlsx->saveAs(filePath);
     if (!saveSuccess) {
       qDebug() << "Failed to save output file";
     }
