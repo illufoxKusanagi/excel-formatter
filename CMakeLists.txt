@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(trainLoggerFormatter)
+project(excelFormatter)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -30,41 +30,41 @@ if(WIN32)
 endif()
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
-    qt_add_executable(trainLoggerFormatter
+    qt_add_executable(excelFormatter
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         ${APP_ICON_RESOURCE}
     )
 else()
     if(ANDROID)
-        add_library(trainLoggerFormatter SHARED
+        add_library(excelFormatter SHARED
             ${PROJECT_SOURCES}
         )
     else()
-        add_executable(trainLoggerFormatter
+        add_executable(excelFormatter
             ${PROJECT_SOURCES}
         )
     endif()
 endif()
 
 # Tautkan pustaka Qt dan QtXlsx
-target_link_libraries(trainLoggerFormatter PRIVATE
+target_link_libraries(excelFormatter PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     QXlsx
 )
 
-set_target_properties(trainLoggerFormatter PROPERTIES
+set_target_properties(excelFormatter PROPERTIES
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
 
 include(GNUInstallDirs)
-install(TARGETS trainLoggerFormatter
+install(TARGETS excelFormatter
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
-    qt_finalize_executable(trainLoggerFormatter)
+    qt_finalize_executable(excelFormatter)
 endif()
