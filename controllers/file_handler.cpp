@@ -11,22 +11,13 @@ void FileHandler::cleanupDocument() {
   }
 }
 
-void FileHandler::procesFile(QString filePath) {
+void FileHandler::procesFile(QString filePath, QString savePath) {
   m_isCanceled = false;
   emit progressUpdate(0);
   m_currentFilePath = filePath;
   m_xlsx = new QXlsx::Document(filePath);
   bool success = m_xlsx->load();
-
-  // Check if canceled early
-  if (m_isCanceled) {
-    emit processingCanceled();
-    emit processingFinished();
-    return;
-  }
-
   emit progressUpdate(10);
-
   QStringList sheetNames;
   if (success) {
     sheetNames = m_xlsx->sheetNames();
@@ -41,19 +32,13 @@ void FileHandler::procesFile(QString filePath) {
       convertCell(sheetNames[i]);
       qDebug() << sheetNames[i];
       emit progressUpdate(progress);
-      if (m_isCanceled) {
-        emit processingCanceled();
-        emit processingFinished();
-        return;
-      }
     }
   }
   if (!m_isCanceled) {
-    QString filePath = QFileDialog::getSaveFileName(
-        nullptr, "Save File", "output.xlsx", "Excel Files (*.xlsx)");
-    bool saveSuccess = m_xlsx->saveAs(filePath);
+    bool saveSuccess = m_xlsx->saveAs(savePath);
     if (!saveSuccess) {
-      qDebug() << "Failed to save output file";
+      QMessageBox::warning(nullptr, "Error",
+                           "Failed to save the file. Please try again.");
     }
     cleanupDocument();
   }
@@ -63,19 +48,17 @@ void FileHandler::procesFile(QString filePath) {
 }
 
 void FileHandler::cancelProcess() {
-  qDebug() << "Canceling processing...";
+  QMessageBox::information(nullptr, "Processing Canceled",
+                           "File processing has been canceled by user");
   m_isCanceled = true;
 }
 
 void FileHandler::convertCell(QString sheetName) {
-  if (!m_xlsx || !m_xlsx->selectSheet(sheetName)) {
-    qDebug() << "Error: Could not select sheet" << sheetName;
-    return;
-  }
-
   QXlsx::CellRange range = m_xlsx->dimension();
   if (!range.isValid()) {
-    qDebug() << "Empty sheet or invalid dimension" << sheetName;
+    QMessageBox::warning(nullptr, "Error",
+                         "Invalid range in the Excel file. Please check the "
+                         "file and try again.");
     return;
   }
 

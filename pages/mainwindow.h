@@ -50,6 +50,6 @@ private:
   FileHandler *fileHandler;
   void processExcel();
   void handleExcelResult(const QStringList &sheetNames);
-  void startExcelProcessing(const QString &filePath);
+  void startExcelProcessing(const QString &filePath, const QString &savePath);
 };
 #endif // MAINWINDOW_H

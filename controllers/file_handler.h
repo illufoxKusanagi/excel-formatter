@@ -18,7 +18,7 @@ class FileHandler : public QObject {
   Q_OBJECT
 
 public slots:
-  void procesFile(QString filePath);
+  void procesFile(QString filePath, QString savePath);
   void cancelProcess();
 
 signals:
