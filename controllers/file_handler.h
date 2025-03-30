@@ -4,6 +4,7 @@
 #include "xlsxdocument.h"
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileDialog>
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QMessageBox>
@@ -17,7 +18,7 @@ class FileHandler : public QObject {
   Q_OBJECT
 
 public slots:
-  void procesFile(QString filePath);
+  void procesFile(QString filePath, QString savePath);
   void cancelProcess();
 
 signals:
@@ -36,7 +37,7 @@ private:
   QString m_currentFilePath;
   QMutex m_mutex;                           // For thread safety
   QList<QFutureWatcher<void> *> m_watchers; // Track futures
-  void deleteFirstFourRows(QString sheetName);
+  void convertCell(QString sheetName);
   void processExcel(QString sheetName);
   void cleanupDocument();
   void clearMemoryCache();

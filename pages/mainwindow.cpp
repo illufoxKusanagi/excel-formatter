@@ -33,7 +33,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
           });
   connect(fileHandler, &FileHandler::processingCanceled, this, [this]() {
     QMessageBox::information(this, "Processing Canceled",
-                             "File processing has been canceled.");
+                             "File processing has been canceled by user");
   });
   connect(fileHandler, &FileHandler::processingFinished, [this]() {
     if (progress)
@@ -70,13 +70,21 @@ void MainWindow::getFile() {
   QString filePath = QFileDialog::getOpenFileName(nullptr, "Pilih file", "",
                                                   "Excel Files (*.xlsx)");
   if (filePath.isEmpty()) {
-    QMessageBox::warning(nullptr, "Error", "Tidak ada file yang dipilih");
+    QMessageBox::warning(nullptr, "Error", "No file selected!");
     return;
   }
-  startExcelProcessing(filePath);
+  QString savePath = QFileDialog::getSaveFileName(
+      nullptr, "Save File", QDir::homePath() + "output.xlsx",
+      "Excel Files (*.xlsx)");
+  if (savePath.isEmpty()) {
+    QMessageBox::warning(this, "Error", "No file selected!");
+    return;
+  }
+  startExcelProcessing(filePath, savePath);
 }
 
-void MainWindow::startExcelProcessing(const QString &filePath) {
+void MainWindow::startExcelProcessing(const QString &filePath,
+                                      const QString &savePath) {
   progress =
       new QProgressDialog("Loading Excel file...", "Cancel", 0, 100, this);
   progress->setWindowModality(Qt::WindowModal);
@@ -86,18 +94,10 @@ void MainWindow::startExcelProcessing(const QString &filePath) {
   connect(progress, &QProgressDialog::canceled, this,
           &MainWindow::cancelProcessing);
   QMetaObject::invokeMethod(fileHandler, "procesFile", Qt::QueuedConnection,
-                            Q_ARG(QString, filePath));
+                            Q_ARG(QString, filePath), Q_ARG(QString, savePath));
 }
 
 void MainWindow::handleExcelResult(const QStringList &sheetNames) {
-  // if (!success) {
-  //   QMessageBox::warning(this, "Error", "Failed to open file!");
-  //   return;
-  // }
-  processExcel();
-}
-
-void MainWindow::processExcel() {
   QMessageBox::information(this, "Success", "Data processed successfully!");
 }
 
@@ -106,13 +106,19 @@ void MainWindow::dropEvent(QDropEvent *event) {
   if (urls.isEmpty())
     return;
   QString filePath = urls.first().toLocalFile();
-  startExcelProcessing(filePath);
+  QString savePath = QFileDialog::getSaveFileName(
+      nullptr, "Save File", QDir::homePath(), "Excel Files (*.xlsx)");
+  if (savePath.isEmpty()) {
+    QMessageBox::warning(this, "Error", "No file selected!");
+    return;
+  }
+  startExcelProcessing(filePath, savePath);
 }
 
 void MainWindow::cancelProcessing() {
   int ret = QMessageBox::warning(
       this, tr("Warning!"),
-      tr("your file processed in background.\n"
+      tr("Your file is processed in background.\n"
          "Do you want to forcibly cancel and terminate the operation?"),
       QMessageBox::Yes | QMessageBox::No);
 
