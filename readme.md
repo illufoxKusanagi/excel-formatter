@@ -17,7 +17,7 @@ A lightweight utility for processing Excel (.xlsx) files, optimized for cleaning
 
 ## Download
 
-1. Go to the [Releases](https://github.com/illufoxKusanagi/excel-number-formatter/releases) page
+1. [Click here](https://github.com/illufoxKusanagi/excel-number-formatter/releases) to find the binaries
 2. Download the latest `ExcelFormatter.zip` file
 3. Extract the contents to any folder on your computer
 4. Run `excelFormatter.exe`
