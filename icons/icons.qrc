@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/icons">
+        <file>appIcon.ico</file>
         <file>excelConvert32.ico</file>
         <file>excelConvert64.ico</file>
         <file>excelConvert128.ico</file>
