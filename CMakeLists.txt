@@ -22,6 +22,7 @@ set(PROJECT_SOURCES
     controllers/file_handler.h
     controllers/file_handler.cpp
     mainwindow.ui
+    icons/icons.qrc
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
