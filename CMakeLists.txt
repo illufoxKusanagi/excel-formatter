@@ -25,10 +25,15 @@ set(PROJECT_SOURCES
     icons/icons.qrc
 )
 
+if(WIN32)
+  set(APP_ICON_RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/icons/icons.rc")
+endif()
+
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(trainLoggerFormatter
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+        ${APP_ICON_RESOURCE}
     )
 else()
     if(ANDROID)
