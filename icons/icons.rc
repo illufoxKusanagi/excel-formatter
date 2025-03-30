@@ -1,3 +1,1 @@
-IDI_ICON1 ICON "excelConvert32.ico"
-IDI_ICON2 ICON "excelConvert64.ico" 
-IDI_ICON3 ICON "excelConvert128.ico"
+IDI_ICON1 ICON "icon.ico"
