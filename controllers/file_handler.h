@@ -18,7 +18,7 @@ class FileHandler : public QObject {
   Q_OBJECT
 
 public slots:
-  void procesFile(QString filePath, QString savePath);
+  void procesFile(QString filePath);
   void cancelProcess();
 
 signals:
@@ -30,21 +30,19 @@ signals:
 public:
   FileHandler();
   ~FileHandler();
+  void handleSaveFile();
 
 private:
   bool m_isCanceled = false;
   QXlsx::Document *m_xlsx = nullptr;
   QString m_currentFilePath;
-  QMutex m_mutex;                           // For thread safety
-  QList<QFutureWatcher<void> *> m_watchers; // Track futures
+  QList<QFutureWatcher<void> *> m_watchers;
   void convertCell(QString sheetName);
   void processExcel(QString sheetName);
   void cleanupDocument();
   void clearMemoryCache();
-  // New methods for multithreading
   void processSheetRange(QString sheetName, int startRow, int endRow,
                          QVector<int> columnsToCheck);
-  void processSheet(QString sheetName);
 };
 
 #endif // FILE_HANDLER_H

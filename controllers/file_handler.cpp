@@ -11,7 +11,7 @@ void FileHandler::cleanupDocument() {
   }
 }
 
-void FileHandler::procesFile(QString filePath, QString savePath) {
+void FileHandler::procesFile(QString filePath) {
   m_isCanceled = false;
   emit progressUpdate(0);
   m_currentFilePath = filePath;
@@ -30,18 +30,17 @@ void FileHandler::procesFile(QString filePath, QString savePath) {
       }
       int progress = 10 + (i + 1) * 80 / sheetNames.size();
       convertCell(sheetNames[i]);
-      qDebug() << sheetNames[i];
       emit progressUpdate(progress);
     }
   }
-  if (!m_isCanceled) {
-    bool saveSuccess = m_xlsx->saveAs(savePath);
-    if (!saveSuccess) {
-      QMessageBox::warning(nullptr, "Error",
-                           "Failed to save the file. Please try again.");
-    }
-    cleanupDocument();
-  }
+  // if (!m_isCanceled) {
+  //   bool saveSuccess = m_xlsx->saveAs(savePath);
+  //   if (!saveSuccess) {
+  //     QMessageBox::warning(nullptr, "Error",
+  //                          "Failed to save the file. Please try again.");
+  //   }
+  //   cleanupDocument();
+  // }
   emit resultReady(sheetNames);
   emit processingFinished();
   emit progressUpdate(100);
@@ -67,7 +66,7 @@ void FileHandler::convertCell(QString sheetName) {
 
   // Process in larger chunks
   const int CHUNK_SIZE = 5000;
-  for (int startRow = 5; startRow <= maxRow; startRow += CHUNK_SIZE) {
+  for (int startRow = 0; startRow <= maxRow; startRow += CHUNK_SIZE) {
     int endRow = qMin(startRow + CHUNK_SIZE - 1, maxRow);
 
     for (int col = 0; col < maxCol; col++) {
@@ -104,6 +103,21 @@ void FileHandler::convertCell(QString sheetName) {
       QCoreApplication::processEvents();
     }
   }
+}
+
+void FileHandler::handleSaveFile() {
+  QString savePath = QFileDialog::getSaveFileName(
+      nullptr, "Save File", QDir::homePath(), "Excel Files (*.xlsx)");
+  if (!savePath.isEmpty()) {
+    QMessageBox::information(nullptr, "Success",
+                             "File saved successfully to: " + savePath);
+    if (m_xlsx) {
+      m_xlsx->saveAs(savePath);
+    }
+  } else {
+    QMessageBox::warning(nullptr, "Error", "Saving file canceled by user.");
+  }
+  cleanupDocument();
 }
 
 void FileHandler::clearMemoryCache() { QCoreApplication::processEvents(); }

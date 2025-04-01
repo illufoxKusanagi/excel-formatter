@@ -73,18 +73,17 @@ void MainWindow::getFile() {
     QMessageBox::warning(nullptr, "Error", "No file selected!");
     return;
   }
-  QString savePath = QFileDialog::getSaveFileName(
-      nullptr, "Save File", QDir::homePath() + "output.xlsx",
-      "Excel Files (*.xlsx)");
-  if (savePath.isEmpty()) {
-    QMessageBox::warning(this, "Error", "No file selected!");
-    return;
-  }
-  startExcelProcessing(filePath, savePath);
+  // QString savePath = QFileDialog::getSaveFileName(
+  //     nullptr, "Save File", QDir::homePath() + "output.xlsx",
+  //     "Excel Files (*.xlsx)");
+  // if (savePath.isEmpty()) {
+  //   QMessageBox::warning(this, "Error", "No file selected!");
+  //   return;
+  // }
+  startExcelProcessing(filePath);
 }
 
-void MainWindow::startExcelProcessing(const QString &filePath,
-                                      const QString &savePath) {
+void MainWindow::startExcelProcessing(const QString &filePath) {
   progress =
       new QProgressDialog("Loading Excel file...", "Cancel", 0, 100, this);
   progress->setWindowModality(Qt::WindowModal);
@@ -94,11 +93,14 @@ void MainWindow::startExcelProcessing(const QString &filePath,
   connect(progress, &QProgressDialog::canceled, this,
           &MainWindow::cancelProcessing);
   QMetaObject::invokeMethod(fileHandler, "procesFile", Qt::QueuedConnection,
-                            Q_ARG(QString, filePath), Q_ARG(QString, savePath));
+                            Q_ARG(QString, filePath));
 }
 
 void MainWindow::handleExcelResult(const QStringList &sheetNames) {
-  QMessageBox::information(this, "Success", "Data processed successfully!");
+  QMessageBox::information(
+      this, "Success",
+      "Data processed successfully! Now please save your file!");
+  fileHandler->handleSaveFile();
 }
 
 void MainWindow::dropEvent(QDropEvent *event) {
@@ -106,13 +108,13 @@ void MainWindow::dropEvent(QDropEvent *event) {
   if (urls.isEmpty())
     return;
   QString filePath = urls.first().toLocalFile();
-  QString savePath = QFileDialog::getSaveFileName(
-      nullptr, "Save File", QDir::homePath(), "Excel Files (*.xlsx)");
-  if (savePath.isEmpty()) {
-    QMessageBox::warning(this, "Error", "No file selected!");
-    return;
-  }
-  startExcelProcessing(filePath, savePath);
+  // QString savePath = QFileDialog::getSaveFileName(
+  //     nullptr, "Save File", QDir::homePath(), "Excel Files (*.xlsx)");
+  // if (savePath.isEmpty()) {
+  //   QMessageBox::warning(this, "Error", "No file selected!");
+  //   return;
+  // }
+  startExcelProcessing(filePath);
 }
 
 void MainWindow::cancelProcessing() {
