@@ -100,6 +100,16 @@ void MainWindow::handleExcelResult(const QStringList &sheetNames) {
   QMessageBox::information(
       this, "Success",
       "Data processed successfully! Now please save your file!");
+  // progress =
+  //     new QProgressDialog("Saving Excel file...", "Cancel", 0, 100, this);
+  // progress->setWindowModality(Qt::WindowModal);
+  // progress->setValue(0);
+  // progress->setMinimumDuration(0);
+  // progress->show();
+  // connect(progress, &QProgressDialog::canceled, this,
+  //         &MainWindow::cancelProcessing);
+  // QMetaObject::invokeMethod(fileHandler, "handleSaveFile",
+  //                           Qt::QueuedConnection);
   fileHandler->handleSaveFile();
 }
 

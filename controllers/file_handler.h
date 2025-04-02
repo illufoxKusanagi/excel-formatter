@@ -9,6 +9,7 @@
 #include <QFutureWatcher>
 #include <QMessageBox>
 #include <QObject>
+#include <QProgressDialog>
 #include <QRegularExpression>
 #include <QString>
 #include <QVector>
