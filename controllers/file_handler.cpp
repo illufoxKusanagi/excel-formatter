@@ -16,6 +16,7 @@ void FileHandler::procesFile(QString filePath) {
   emit progressUpdate(0);
   m_currentFilePath = filePath;
   m_xlsx = new QXlsx::Document(filePath);
+  numFormat.setNumberFormat("#,##0.00");
   bool success = m_xlsx->load();
   emit progressUpdate(10);
   QStringList sheetNames;
@@ -29,7 +30,7 @@ void FileHandler::procesFile(QString filePath) {
         return;
       }
       int progress = 10 + (i + 1) * 80 / sheetNames.size();
-      convertCell(sheetNames[i]);
+      processCell(sheetNames[i]);
       emit progressUpdate(progress);
     }
   }
@@ -52,7 +53,7 @@ void FileHandler::cancelProcess() {
   m_isCanceled = true;
 }
 
-void FileHandler::convertCell(QString sheetName) {
+void FileHandler::processCell(QString sheetName) {
   m_xlsx->selectSheet(sheetName);
   QXlsx::CellRange range = m_xlsx->dimension();
   if (!range.isValid()) {
@@ -65,8 +66,8 @@ void FileHandler::convertCell(QString sheetName) {
   int maxRow = range.lastRow();
   int maxCol = range.lastColumn();
 
-  // Process in larger chunks
-  const int CHUNK_SIZE = 5000;
+  const int CHUNK_SIZE = 1000;
+
   for (int startRow = 0; startRow <= maxRow; startRow += CHUNK_SIZE) {
     int endRow = qMin(startRow + CHUNK_SIZE - 1, maxRow);
 
@@ -76,41 +77,42 @@ void FileHandler::convertCell(QString sheetName) {
         if (row % 100 == 0 && m_isCanceled) {
           return;
         }
-
         QVariant value = m_xlsx->read(row, col);
         if (value.isNull() || value.toString().isEmpty())
           continue;
-
-        QString cellString = value.toString();
-        bool potentiallyNumeric = true;
-        bool isNegative = !cellString.isEmpty() && cellString[0] == '-';
-        for (int i = 0; i < cellString.length(); i++) {
-          QChar c = cellString[i];
-          // Allow minus sign only at the beginning
-          if ((c == '-' && i == 0) || c == "0") {
-            continue;
-          }
-          // Otherwise only allow digits and decimal separators
-          if (!c.isDigit() && c != '.' && c != ',') {
-            potentiallyNumeric = false;
-            break;
-          }
-        }
-
-        if (potentiallyNumeric) {
-          QString normalized = cellString;
-          normalized.replace(',', '.');
-          bool conversionOk = false;
-          double numValue = normalized.toDouble(&conversionOk);
-
-          if (conversionOk) {
-            QXlsx::Format numFormat;
-            numFormat.setNumberFormat("#,##0.00");
-            m_xlsx->write(row, col, numValue, numFormat);
-          }
-        }
+        convertCell(row, col, value);
       }
       QCoreApplication::processEvents();
+    }
+  }
+}
+
+void FileHandler::convertCell(const int row, const int col,
+                              const QVariant value) {
+  cellString = value.toString();
+  bool potentiallyNumeric = true;
+  bool isNegative = !cellString.isEmpty() && cellString[0] == '-';
+  for (int i = 0; i < cellString.length(); i++) {
+    QChar c = cellString[i];
+    // Allow minus sign only at the beginning
+    if ((c == '-' && i == 0) || c == "0") {
+      continue;
+    }
+    // Otherwise only allow digits and decimal separators
+    if (!c.isDigit() && c != '.' && c != ',') {
+      potentiallyNumeric = false;
+      break;
+    }
+  }
+
+  if (potentiallyNumeric) {
+    normalized = cellString;
+    normalized.replace(',', '.');
+    bool conversionOk = false;
+    double numValue = normalized.toDouble(&conversionOk);
+
+    if (conversionOk) {
+      m_xlsx->write(row, col, numValue, numFormat);
     }
   }
 }
