@@ -34,14 +34,6 @@ void FileHandler::procesFile(QString filePath) {
       emit progressUpdate(progress);
     }
   }
-  // if (!m_isCanceled) {
-  //   bool saveSuccess = m_xlsx->saveAs(savePath);
-  //   if (!saveSuccess) {
-  //     QMessageBox::warning(nullptr, "Error",
-  //                          "Failed to save the file. Please try again.");
-  //   }
-  //   cleanupDocument();
-  // }
   emit resultReady(sheetNames);
   emit processingFinished();
   emit progressUpdate(100);
@@ -55,6 +47,7 @@ void FileHandler::cancelProcess() {
 
 void FileHandler::processCell(QString sheetName) {
   m_xlsx->selectSheet(sheetName);
+  QCoreApplication::processEvents();
   QXlsx::CellRange range = m_xlsx->dimension();
   if (!range.isValid()) {
     QMessageBox::warning(nullptr, "Error",
@@ -82,9 +75,9 @@ void FileHandler::processCell(QString sheetName) {
           continue;
         convertCell(row, col, value);
       }
-      QCoreApplication::processEvents();
     }
   }
+  clearMemoryCache();
 }
 
 void FileHandler::convertCell(const int row, const int col,
@@ -165,6 +158,7 @@ void FileHandler::handleSaveFile() {
       //   saveProgress->close();
       //   saveProgress->deleteLater();
       // }
+      QCoreApplication::processEvents();
       m_xlsx->saveAs(savePath);
       QMessageBox::information(nullptr, "Success",
                                "File saved successfully to: " + savePath);
@@ -175,4 +169,35 @@ void FileHandler::handleSaveFile() {
   }
 }
 
-void FileHandler::clearMemoryCache() { QCoreApplication::processEvents(); }
+void FileHandler::clearMemoryCache() {
+  QCoreApplication::processEvents();
+
+#ifdef Q_OS_WIN
+  // Windows-specific memory release
+  HANDLE process = GetCurrentProcess();
+
+  // Simpler approach using SetProcessWorkingSetSize
+  // This tells Windows to trim the working set to minimum
+  SetProcessWorkingSetSize(process, (SIZE_T)-1, (SIZE_T)-1);
+
+  // Alternative approach if the above doesn't work
+  SYSTEM_INFO sysInfo;
+  GetSystemInfo(&sysInfo);
+
+  // Allocate and free a large block of memory to flush caches
+  void *tempMem = VirtualAlloc(NULL, sysInfo.dwPageSize * 4096,
+                               MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+  if (tempMem) {
+    // Write to the memory to ensure it's actually allocated
+    memset(tempMem, 0, sysInfo.dwPageSize * 4096);
+    // Free it immediately
+    VirtualFree(tempMem, 0, MEM_RELEASE);
+  }
+#endif
+
+  // Force garbage collection in Qt
+  QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+  // Give system time to reclaim memory
+  QThread::msleep(5);
+}

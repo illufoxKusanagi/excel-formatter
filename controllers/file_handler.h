@@ -41,6 +41,7 @@ private:
   QString normalized;
   QXlsx::Format numFormat;
   QList<QFutureWatcher<void> *> m_watchers;
+  QStringList m_sheetNames;
   void processCell(QString sheetName);
   void processExcel(QString sheetName);
   void cleanupDocument();
@@ -51,3 +52,8 @@ private:
 };
 
 #endif // FILE_HANDLER_H
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#pragma comment(lib, "kernel32.lib")
+#endif
