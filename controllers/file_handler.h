@@ -38,12 +38,13 @@ public:
 private:
   bool m_isCanceled = false;
   QXlsx::Document *m_xlsx = nullptr;
-  QString m_currentFilePath;
   QString cellString;
   QString normalized;
   QXlsx::Format numFormat;
   QList<QFutureWatcher<void> *> m_watchers;
   QStringList m_sheetNames;
+  QString m_fileSize;
+  qint64 m_rawFileSize;
   void processCell(QString sheetName);
   void processExcel(QString sheetName);
   void cleanupDocument();
@@ -51,6 +52,7 @@ private:
   void processSheetRange(QString sheetName, int startRow, int endRow,
                          QVector<int> columnsToCheck);
   void convertCell(const int row, const int col, const QVariant value);
+  QString getHumanReadableSize(qint64 bytes);
 };
 
 #endif // FILE_HANDLER_H

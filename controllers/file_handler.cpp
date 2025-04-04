@@ -14,10 +14,11 @@ void FileHandler::cleanupDocument() {
 void FileHandler::procesFile(QString filePath) {
   m_isCanceled = false;
   emit progressUpdate(0);
-  m_currentFilePath = filePath;
   m_xlsx = new QXlsx::Document(filePath);
   numFormat.setNumberFormat("#,##0.00");
   bool success = m_xlsx->load();
+  m_rawFileSize = QFileInfo(filePath).size();
+  m_fileSize = getHumanReadableSize(m_rawFileSize);
   emit progressUpdate(10);
   QStringList sheetNames;
   if (success) {
@@ -121,7 +122,7 @@ void FileHandler::handleSaveFile(const QString savePath) {
       // Connect timer to update progress
       connect(timer, &QTimer::timeout, [this, timer, progress]() mutable {
         if (progress < 90) {
-          progress += 2;
+          progress += 1;
           emit saveProgressUpdate(progress);
         }
       });
@@ -149,8 +150,12 @@ void FileHandler::handleSaveFile(const QString savePath) {
         cleanupDocument();
       });
 
-      // Start the timer
-      timer->start(200);
+      const qint64 SIZE_THRESHOLD = 20 * 1024 * 1024; // 20 MB
+      if (m_rawFileSize > SIZE_THRESHOLD) {
+        timer->start(500);
+      } else {
+        timer->start(100);
+      }
 
       // Start the save operation in background thread
       QFuture<bool> future = QtConcurrent::run(
@@ -161,6 +166,22 @@ void FileHandler::handleSaveFile(const QString savePath) {
     } else {
       emit saveCompleted(false, "");
     }
+  }
+}
+
+QString FileHandler::getHumanReadableSize(qint64 bytes) {
+  constexpr qint64 KB = 1024;
+  constexpr qint64 MB = 1024 * KB;
+  constexpr qint64 GB = 1024 * MB;
+
+  if (bytes < KB) {
+    return QString("%1 bytes").arg(bytes);
+  } else if (bytes < MB) {
+    return QString("%1 KB").arg(bytes / double(KB), 0, 'f', 2);
+  } else if (bytes < GB) {
+    return QString("%1 MB").arg(bytes / double(MB), 0, 'f', 2);
+  } else {
+    return QString("%1 GB").arg(bytes / double(GB), 0, 'f', 2);
   }
 }
 
