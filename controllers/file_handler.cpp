@@ -114,38 +114,22 @@ void FileHandler::handleSaveFile(const QString savePath) {
   if (!savePath.isEmpty()) {
     if (m_xlsx) {
       emit saveProgressUpdate(0);
-
-      // Use a timer to simulate progress updates during saving
       QTimer *timer = new QTimer(this);
       int progress = 0;
-
-      // Connect timer to update progress
       connect(timer, &QTimer::timeout, [this, timer, progress]() mutable {
         if (progress < 90) {
           progress += 1;
           emit saveProgressUpdate(progress);
         }
       });
-
-      // Use QtConcurrent to perform save in a background thread
       QFutureWatcher<bool> *watcher = new QFutureWatcher<bool>(this);
-
-      // When save completes in background thread, handle results
       connect(watcher, &QFutureWatcher<bool>::finished, [=]() {
-        // Stop the timer
         timer->stop();
         timer->deleteLater();
-
-        // Get the save result
         bool success = watcher->result();
-
-        // Show 100% progress
         emit saveProgressUpdate(99);
-
-        // Notify completion
         QThread::sleep(1);
         emit saveCompleted(success, savePath);
-        // Clean up
         watcher->deleteLater();
         cleanupDocument();
       });
@@ -156,12 +140,8 @@ void FileHandler::handleSaveFile(const QString savePath) {
       } else {
         timer->start(100);
       }
-
-      // Start the save operation in background thread
       QFuture<bool> future = QtConcurrent::run(
           [this, savePath]() { return m_xlsx->saveAs(savePath); });
-
-      // Set the future to watch
       watcher->setFuture(future);
     } else {
       emit saveCompleted(false, "");
@@ -189,31 +169,17 @@ void FileHandler::clearMemoryCache() {
   QCoreApplication::processEvents();
 
 #ifdef Q_OS_WIN
-  // Windows-specific memory release
   HANDLE process = GetCurrentProcess();
-
-  // Simpler approach using SetProcessWorkingSetSize
-  // This tells Windows to trim the working set to minimum
   SetProcessWorkingSetSize(process, (SIZE_T)-1, (SIZE_T)-1);
-
-  // Alternative approach if the above doesn't work
   SYSTEM_INFO sysInfo;
   GetSystemInfo(&sysInfo);
-
-  // Allocate and free a large block of memory to flush caches
   void *tempMem = VirtualAlloc(NULL, sysInfo.dwPageSize * 4096,
                                MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
   if (tempMem) {
-    // Write to the memory to ensure it's actually allocated
     memset(tempMem, 0, sysInfo.dwPageSize * 4096);
-    // Free it immediately
     VirtualFree(tempMem, 0, MEM_RELEASE);
   }
 #endif
-
-  // Force garbage collection in Qt
   QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-
-  // Give system time to reclaim memory
   QThread::msleep(5);
 }
