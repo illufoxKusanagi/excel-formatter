@@ -1,5 +1,7 @@
 # Excel Formatter
-![Excel Formatter is Here!](/icons/excelConvert128.png "Excel Formatter") A lightweight utility for processing Excel (.xlsx) files, optimized for cleaning and reformatting log data.
+![Excel Formatter is Here!](/icons/excelConvert128.png "Excel Formatter") 
+
+A lightweight utility for processing Excel (.xlsx) files, optimized for cleaning and reformatting log data.
 
 ## Features
 
