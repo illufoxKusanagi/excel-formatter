@@ -1,7 +1,5 @@
 # Excel Formatter
-![Excel Formatter is Here!](/icons/excelConvert128.png "Excel Formatter")
-
-A lightweight utility for processing Excel (.xlsx) files, optimized for cleaning and reformatting log data.
+![Excel Formatter is Here!](/icons/excelConvert128.png "Excel Formatter") A lightweight utility for processing Excel (.xlsx) files, optimized for cleaning and reformatting log data.
 
 ## Features
 
@@ -13,6 +11,7 @@ A lightweight utility for processing Excel (.xlsx) files, optimized for cleaning
 ## System Requirements
 
 - Windows 7/8/10/11 (64-bit)
+- 8 GB RAM or more
 - No additional dependencies required
 
 ## Download
@@ -48,9 +47,9 @@ This application processes Excel files in the following ways:
 ## Tips for Best Results
 
 - Make sure Excel files aren't open in another application when processing
-- For very large files, processing may take a few minutes
-- The output file will maintain the same structure as the original except for the deleted rows and reformatted numbers
-- You should not cancel the process once it started, or it could cause your computer error
+- For very large files, processing may take a few minutes and consumes a lot of memory (RAM). Make sure your computer has enough memory to run large files
+- The output file will maintain the same structure as the original except for the deleted reformatted numbers
+- You should not cancel the process once it started
 
 ## Technical Details
 
