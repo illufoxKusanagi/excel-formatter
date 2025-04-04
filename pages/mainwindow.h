@@ -46,10 +46,11 @@ private:
   QSlider *qualitySlider;
   QSpinBox *qualityValue;
   QProgressDialog *progress;
+  QProgressDialog *saveProgress;
   QThread thread;
   FileHandler *fileHandler;
   void processExcel();
   void handleExcelResult(const QStringList &sheetNames);
-  void startExcelProcessing(const QString &filePath, const QString &savePath);
+  void startExcelProcessing(const QString &filePath);
 };
 #endif // MAINWINDOW_H

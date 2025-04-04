@@ -11,12 +11,14 @@ void FileHandler::cleanupDocument() {
   }
 }
 
-void FileHandler::procesFile(QString filePath, QString savePath) {
+void FileHandler::procesFile(QString filePath) {
   m_isCanceled = false;
   emit progressUpdate(0);
-  m_currentFilePath = filePath;
   m_xlsx = new QXlsx::Document(filePath);
+  numFormat.setNumberFormat("#,##0.00");
   bool success = m_xlsx->load();
+  m_rawFileSize = QFileInfo(filePath).size();
+  m_fileSize = getHumanReadableSize(m_rawFileSize);
   emit progressUpdate(10);
   QStringList sheetNames;
   if (success) {
@@ -29,22 +31,14 @@ void FileHandler::procesFile(QString filePath, QString savePath) {
         return;
       }
       int progress = 10 + (i + 1) * 80 / sheetNames.size();
-      convertCell(sheetNames[i]);
-      qDebug() << sheetNames[i];
+      processCell(sheetNames[i]);
       emit progressUpdate(progress);
     }
   }
-  if (!m_isCanceled) {
-    bool saveSuccess = m_xlsx->saveAs(savePath);
-    if (!saveSuccess) {
-      QMessageBox::warning(nullptr, "Error",
-                           "Failed to save the file. Please try again.");
-    }
-    cleanupDocument();
-  }
   emit resultReady(sheetNames);
+  emit progressUpdate(99);
+  QThread::sleep(3);
   emit processingFinished();
-  emit progressUpdate(100);
 }
 
 void FileHandler::cancelProcess() {
@@ -53,7 +47,9 @@ void FileHandler::cancelProcess() {
   m_isCanceled = true;
 }
 
-void FileHandler::convertCell(QString sheetName) {
+void FileHandler::processCell(QString sheetName) {
+  m_xlsx->selectSheet(sheetName);
+  QCoreApplication::processEvents();
   QXlsx::CellRange range = m_xlsx->dimension();
   if (!range.isValid()) {
     QMessageBox::warning(nullptr, "Error",
@@ -65,45 +61,159 @@ void FileHandler::convertCell(QString sheetName) {
   int maxRow = range.lastRow();
   int maxCol = range.lastColumn();
 
-  // Process in larger chunks
-  const int CHUNK_SIZE = 5000;
-  for (int startRow = 5; startRow <= maxRow; startRow += CHUNK_SIZE) {
+  const int CHUNK_SIZE = 1000;
+
+  for (int startRow = 0; startRow <= maxRow; startRow += CHUNK_SIZE) {
     int endRow = qMin(startRow + CHUNK_SIZE - 1, maxRow);
 
-    for (int col = 0; col < maxCol; col++) {
+    for (int col = 0; col <= maxCol; col++) {
 
       for (int row = startRow; row <= endRow; row++) {
-        if (row % 100 == 0 && m_isCanceled)
+        if (row % 100 == 0 && m_isCanceled) {
           return;
-
+        }
         QVariant value = m_xlsx->read(row, col);
         if (value.isNull() || value.toString().isEmpty())
           continue;
-
-        QString cellString = value.toString();
-
-        bool potentiallyNumeric = true;
-        for (const QChar &c : cellString) {
-          if (!c.isDigit() && c != '.' && c != ',') {
-            potentiallyNumeric = false;
-            break;
-          }
-        }
-
-        if (potentiallyNumeric) {
-          QString normalized = cellString;
-          normalized.replace(',', '.');
-          bool conversionOk = false;
-          double numValue = normalized.toDouble(&conversionOk);
-
-          if (conversionOk) {
-            m_xlsx->write(row, col, numValue);
-          }
-        }
+        convertCell(row, col, value);
       }
-      QCoreApplication::processEvents();
+    }
+  }
+  clearMemoryCache();
+}
+
+void FileHandler::convertCell(const int row, const int col,
+                              const QVariant value) {
+  cellString = value.toString();
+  bool potentiallyNumeric = true;
+  bool isNegative = !cellString.isEmpty() && cellString[0] == '-';
+  for (int i = 0; i < cellString.length(); i++) {
+    QChar c = cellString[i];
+    if ((c == '-' && i == 0) || c == "0") {
+      continue;
+    }
+    if (!c.isDigit() && c != '.' && c != ',') {
+      potentiallyNumeric = false;
+      break;
+    }
+  }
+
+  if (potentiallyNumeric) {
+    normalized = cellString;
+    normalized.replace(',', '.');
+    bool conversionOk = false;
+    double numValue = normalized.toDouble(&conversionOk);
+
+    if (conversionOk) {
+      m_xlsx->write(row, col, numValue, numFormat);
     }
   }
 }
 
-void FileHandler::clearMemoryCache() { QCoreApplication::processEvents(); }
+void FileHandler::handleSaveFile(const QString savePath) {
+  if (!savePath.isEmpty()) {
+    if (m_xlsx) {
+      emit saveProgressUpdate(0);
+
+      // Use a timer to simulate progress updates during saving
+      QTimer *timer = new QTimer(this);
+      int progress = 0;
+
+      // Connect timer to update progress
+      connect(timer, &QTimer::timeout, [this, timer, progress]() mutable {
+        if (progress < 90) {
+          progress += 1;
+          emit saveProgressUpdate(progress);
+        }
+      });
+
+      // Use QtConcurrent to perform save in a background thread
+      QFutureWatcher<bool> *watcher = new QFutureWatcher<bool>(this);
+
+      // When save completes in background thread, handle results
+      connect(watcher, &QFutureWatcher<bool>::finished, [=]() {
+        // Stop the timer
+        timer->stop();
+        timer->deleteLater();
+
+        // Get the save result
+        bool success = watcher->result();
+
+        // Show 100% progress
+        emit saveProgressUpdate(99);
+
+        // Notify completion
+        QThread::sleep(1);
+        emit saveCompleted(success, savePath);
+        // Clean up
+        watcher->deleteLater();
+        cleanupDocument();
+      });
+
+      const qint64 SIZE_THRESHOLD = 20 * 1024 * 1024; // 20 MB
+      if (m_rawFileSize > SIZE_THRESHOLD) {
+        timer->start(500);
+      } else {
+        timer->start(100);
+      }
+
+      // Start the save operation in background thread
+      QFuture<bool> future = QtConcurrent::run(
+          [this, savePath]() { return m_xlsx->saveAs(savePath); });
+
+      // Set the future to watch
+      watcher->setFuture(future);
+    } else {
+      emit saveCompleted(false, "");
+    }
+  }
+}
+
+QString FileHandler::getHumanReadableSize(qint64 bytes) {
+  constexpr qint64 KB = 1024;
+  constexpr qint64 MB = 1024 * KB;
+  constexpr qint64 GB = 1024 * MB;
+
+  if (bytes < KB) {
+    return QString("%1 bytes").arg(bytes);
+  } else if (bytes < MB) {
+    return QString("%1 KB").arg(bytes / double(KB), 0, 'f', 2);
+  } else if (bytes < GB) {
+    return QString("%1 MB").arg(bytes / double(MB), 0, 'f', 2);
+  } else {
+    return QString("%1 GB").arg(bytes / double(GB), 0, 'f', 2);
+  }
+}
+
+void FileHandler::clearMemoryCache() {
+  QCoreApplication::processEvents();
+
+#ifdef Q_OS_WIN
+  // Windows-specific memory release
+  HANDLE process = GetCurrentProcess();
+
+  // Simpler approach using SetProcessWorkingSetSize
+  // This tells Windows to trim the working set to minimum
+  SetProcessWorkingSetSize(process, (SIZE_T)-1, (SIZE_T)-1);
+
+  // Alternative approach if the above doesn't work
+  SYSTEM_INFO sysInfo;
+  GetSystemInfo(&sysInfo);
+
+  // Allocate and free a large block of memory to flush caches
+  void *tempMem = VirtualAlloc(NULL, sysInfo.dwPageSize * 4096,
+                               MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+  if (tempMem) {
+    // Write to the memory to ensure it's actually allocated
+    memset(tempMem, 0, sysInfo.dwPageSize * 4096);
+    // Free it immediately
+    VirtualFree(tempMem, 0, MEM_RELEASE);
+  }
+#endif
+
+  // Force garbage collection in Qt
+  QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+  // Give system time to reclaim memory
+  QThread::msleep(5);
+}
