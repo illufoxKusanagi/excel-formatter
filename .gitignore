@@ -3,6 +3,7 @@
 /.vscode
 /QXlsx
 /output
+.gitignore
 
 # C++ objects and libs
 *.slo
