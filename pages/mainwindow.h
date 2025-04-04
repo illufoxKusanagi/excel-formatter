@@ -46,6 +46,7 @@ private:
   QSlider *qualitySlider;
   QSpinBox *qualityValue;
   QProgressDialog *progress;
+  QProgressDialog *saveProgress;
   QThread thread;
   FileHandler *fileHandler;
   void processExcel();

@@ -19,19 +19,21 @@ class FileHandler : public QObject {
   Q_OBJECT
 
 public slots:
-  void procesFile(QString filePath);
   void cancelProcess();
+  void procesFile(const QString filePath);
+  void handleSaveFile(const QString savePath);
 
 signals:
   void resultReady(const QStringList &sheetNames);
   void processingFinished();
   void progressUpdate(int percentage);
   void processingCanceled();
+  void saveProgressUpdate(int percentage);
+  void saveCompleted(bool success, const QString &path);
 
 public:
   FileHandler();
   ~FileHandler();
-  void handleSaveFile();
 
 private:
   bool m_isCanceled = false;

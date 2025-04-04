@@ -41,6 +41,35 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
                  &MainWindow::cancelProcessing);
     progress->close();
   });
+
+  connect(fileHandler, &FileHandler::saveProgressUpdate, this,
+          [this](int percentage) {
+            if (saveProgress && saveProgress->isVisible()) {
+              saveProgress->setValue(percentage);
+            }
+          });
+
+  connect(fileHandler, &FileHandler::saveCompleted, this,
+          [this](bool success, const QString &path) {
+            if (saveProgress) {
+              disconnect(saveProgress, &QProgressDialog::canceled, this,
+                         &MainWindow::cancelProcessing);
+              saveProgress->close();
+              delete saveProgress;
+              saveProgress = nullptr;
+            }
+
+            // Show appropriate message
+            if (success) {
+              QMessageBox::information(this, "Success",
+                                       "File saved successfully to: " + path);
+            } else {
+              QMessageBox::critical(
+                  this, "Error",
+                  "Failed to save the file. Please try again later.");
+            }
+          });
+
   thread.start();
 }
 
@@ -100,6 +129,18 @@ void MainWindow::handleExcelResult(const QStringList &sheetNames) {
   QMessageBox::information(
       this, "Success",
       "Data processed successfully! Now please save your file!");
+  QString savePath = QFileDialog::getSaveFileName(
+      this, "Save File", QDir::homePath(), "Excel Files (*.xlsx)");
+  saveProgress =
+      new QProgressDialog("Saving Excel file...", "Cancel", 0, 100, this);
+  saveProgress->setWindowModality(Qt::WindowModal);
+  saveProgress->setValue(0);
+  saveProgress->setMinimumDuration(0);
+  saveProgress->show();
+  connect(saveProgress, &QProgressDialog::canceled, this,
+          &MainWindow::cancelProcessing);
+  QMetaObject::invokeMethod(fileHandler, "handleSaveFile", Qt::QueuedConnection,
+                            Q_ARG(QString, savePath));
   // progress =
   //     new QProgressDialog("Saving Excel file...", "Cancel", 0, 100, this);
   // progress->setWindowModality(Qt::WindowModal);
@@ -110,7 +151,7 @@ void MainWindow::handleExcelResult(const QStringList &sheetNames) {
   //         &MainWindow::cancelProcessing);
   // QMetaObject::invokeMethod(fileHandler, "handleSaveFile",
   //                           Qt::QueuedConnection);
-  fileHandler->handleSaveFile();
+  // fileHandler->handleSaveFile();
 }
 
 void MainWindow::dropEvent(QDropEvent *event) {

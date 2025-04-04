@@ -35,8 +35,9 @@ void FileHandler::procesFile(QString filePath) {
     }
   }
   emit resultReady(sheetNames);
+  emit progressUpdate(99);
+  QThread::sleep(3);
   emit processingFinished();
-  emit progressUpdate(100);
 }
 
 void FileHandler::cancelProcess() {
@@ -87,11 +88,9 @@ void FileHandler::convertCell(const int row, const int col,
   bool isNegative = !cellString.isEmpty() && cellString[0] == '-';
   for (int i = 0; i < cellString.length(); i++) {
     QChar c = cellString[i];
-    // Allow minus sign only at the beginning
     if ((c == '-' && i == 0) || c == "0") {
       continue;
     }
-    // Otherwise only allow digits and decimal separators
     if (!c.isDigit() && c != '.' && c != ',') {
       potentiallyNumeric = false;
       break;
@@ -110,62 +109,58 @@ void FileHandler::convertCell(const int row, const int col,
   }
 }
 
-void FileHandler::handleSaveFile() {
-  QString savePath = QFileDialog::getSaveFileName(
-      nullptr, "Save File", QDir::homePath(), "Excel Files (*.xlsx)");
+void FileHandler::handleSaveFile(const QString savePath) {
   if (!savePath.isEmpty()) {
     if (m_xlsx) {
-      // Create a progress dialog for saving
-      // QProgressDialog *saveProgress =
-      //     new QProgressDialog("Saving file...", "Cancel", 0, 100, nullptr);
-      // saveProgress->setWindowModality(Qt::WindowModal);
-      // saveProgress->setValue(0);
-      // saveProgress->setMinimumDuration(0);
-      // saveProgress->show();
+      emit saveProgressUpdate(0);
 
-      // Use a timer to simulate progress updates since QXlsx doesn't provide
-      // progress info
-      //   QTimer *timer = new QTimer();
-      //   int progress = 0;
+      // Use a timer to simulate progress updates during saving
+      QTimer *timer = new QTimer(this);
+      int progress = 0;
 
-      //   QObject::connect(timer, &QTimer::timeout, [=]() mutable {
-      //     // Increment progress to simulate saving progress
-      //     if (progress < 90) {
-      //       progress += 5;
-      //       saveProgress->setValue(progress);
-      //     }
-      //     QCoreApplication::processEvents();
-      //   });
+      // Connect timer to update progress
+      connect(timer, &QTimer::timeout, [this, timer, progress]() mutable {
+        if (progress < 90) {
+          progress += 2;
+          emit saveProgressUpdate(progress);
+        }
+      });
 
-      //   // Start the timer
-      //   timer->start(200);
+      // Use QtConcurrent to perform save in a background thread
+      QFutureWatcher<bool> *watcher = new QFutureWatcher<bool>(this);
 
-      //   // Perform the actual save
-      //   bool saveSuccess = false;
-      //   try {
-      //     saveSuccess = m_xlsx->saveAs(savePath);
-      //     // Set to 100% when complete
-      //     saveProgress->setValue(100);
-      //   } catch (...) {
-      //     saveSuccess = false;
-      //   }
+      // When save completes in background thread, handle results
+      connect(watcher, &QFutureWatcher<bool>::finished, [=]() {
+        // Stop the timer
+        timer->stop();
+        timer->deleteLater();
 
-      //   // Stop the timer
-      //   timer->stop();
-      //   timer->deleteLater();
+        // Get the save result
+        bool success = watcher->result();
 
-      //   // Close and delete the progress dialog
-      //   saveProgress->close();
-      //   saveProgress->deleteLater();
-      // }
-      QCoreApplication::processEvents();
-      m_xlsx->saveAs(savePath);
-      QMessageBox::information(nullptr, "Success",
-                               "File saved successfully to: " + savePath);
+        // Show 100% progress
+        emit saveProgressUpdate(99);
+
+        // Notify completion
+        QThread::sleep(1);
+        emit saveCompleted(success, savePath);
+        // Clean up
+        watcher->deleteLater();
+        cleanupDocument();
+      });
+
+      // Start the timer
+      timer->start(200);
+
+      // Start the save operation in background thread
+      QFuture<bool> future = QtConcurrent::run(
+          [this, savePath]() { return m_xlsx->saveAs(savePath); });
+
+      // Set the future to watch
+      watcher->setFuture(future);
     } else {
-      QMessageBox::warning(nullptr, "Error", "Saving file canceled by user.");
+      emit saveCompleted(false, "");
     }
-    cleanupDocument();
   }
 }
 
