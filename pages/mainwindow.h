@@ -41,14 +41,14 @@ protected:
   void dropEvent(QDropEvent *event) override;
 
 private:
-  QLabel *label;
-  QPushButton *button;
-  QSlider *qualitySlider;
-  QSpinBox *qualityValue;
-  QProgressDialog *progress;
-  QProgressDialog *saveProgress;
-  QThread thread;
-  FileHandler *fileHandler;
+  QLabel *m_label;
+  QPushButton *m_browseFileButton;
+  QSlider *m_qualitySlider;
+  QSpinBox *m_qualityValue;
+  QProgressDialog *m_progress;
+  QProgressDialog *m_saveProgress;
+  QThread m_thread;
+  FileHandler *m_fileHandler;
   void processExcel();
   void handleExcelResult(const QStringList &sheetNames);
   void startExcelProcessing(const QString &filePath);

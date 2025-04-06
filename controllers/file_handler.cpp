@@ -183,3 +183,20 @@ void FileHandler::clearMemoryCache() {
   QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
   QThread::msleep(5);
 }
+
+void FileHandler::pauseProcessing() {
+  QMutexLocker locker(&g_mutex);
+  g_paused = true;
+  // g_pauseCondition.wait(&g_mutex, 1000);
+}
+void FileHandler::resumeProcessing() {
+  QMutexLocker locker(&g_mutex);
+  g_paused = false;
+  g_pauseCondition.wakeAll();
+}
+
+bool FileHandler::g_paused = false;
+
+QMutex FileHandler::g_mutex;
+
+QWaitCondition FileHandler::g_pauseCondition;

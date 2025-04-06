@@ -34,6 +34,9 @@ signals:
 public:
   FileHandler();
   ~FileHandler();
+  static bool g_paused;
+  static QMutex g_mutex;
+  static QWaitCondition g_pauseCondition;
 
 private:
   bool m_isCanceled = false;
@@ -45,6 +48,7 @@ private:
   QStringList m_sheetNames;
   QString m_fileSize;
   qint64 m_rawFileSize;
+
   void processCell(QString sheetName);
   void processExcel(QString sheetName);
   void cleanupDocument();
@@ -53,6 +57,8 @@ private:
                          QVector<int> columnsToCheck);
   void convertCell(const int row, const int col, const QVariant value);
   QString getHumanReadableSize(qint64 bytes);
+  void pauseProcessing();
+  void resumeProcessing();
 };
 
 #endif // FILE_HANDLER_H
