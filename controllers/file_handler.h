@@ -41,9 +41,9 @@ public:
 private:
   bool m_isCanceled = false;
   QXlsx::Document *m_xlsx = nullptr;
-  QString cellString;
-  QString normalized;
-  QXlsx::Format numFormat;
+  QString m_cellString;
+  QString m_normalizedCell;
+  QXlsx::Format m_numFormat;
   QList<QFutureWatcher<void> *> m_watchers;
   QStringList m_sheetNames;
   QString m_fileSize;

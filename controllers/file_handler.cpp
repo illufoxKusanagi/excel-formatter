@@ -15,7 +15,7 @@ void FileHandler::procesFile(QString filePath) {
   m_isCanceled = false;
   emit progressUpdate(0);
   m_xlsx = new QXlsx::Document(filePath);
-  numFormat.setNumberFormat("#,##0.00");
+  m_numFormat.setNumberFormat("#,##0.00");
   bool success = m_xlsx->load();
   m_rawFileSize = QFileInfo(filePath).size();
   m_fileSize = getHumanReadableSize(m_rawFileSize);
@@ -84,11 +84,11 @@ void FileHandler::processCell(QString sheetName) {
 
 void FileHandler::convertCell(const int row, const int col,
                               const QVariant value) {
-  cellString = value.toString();
+  m_cellString = value.toString();
   bool potentiallyNumeric = true;
-  bool isNegative = !cellString.isEmpty() && cellString[0] == '-';
-  for (int i = 0; i < cellString.length(); i++) {
-    QChar c = cellString[i];
+  bool isNegative = !m_cellString.isEmpty() && m_cellString[0] == '-';
+  for (int i = 0; i < m_cellString.length(); i++) {
+    QChar c = m_cellString[i];
     if ((c == '-' && i == 0) || c == "0") {
       continue;
     }
@@ -99,13 +99,13 @@ void FileHandler::convertCell(const int row, const int col,
   }
 
   if (potentiallyNumeric) {
-    normalized = cellString;
-    normalized.replace(',', '.');
+    m_normalizedCell = m_cellString;
+    m_normalizedCell.replace(',', '.');
     bool conversionOk = false;
-    double numValue = normalized.toDouble(&conversionOk);
+    double numValue = m_normalizedCell.toDouble(&conversionOk);
 
     if (conversionOk) {
-      m_xlsx->write(row, col, numValue, numFormat);
+      m_xlsx->write(row, col, numValue, m_numFormat);
     }
   }
 }
