@@ -2,9 +2,11 @@
 #define FILE_HANDLER_H
 
 #include "xlsxdocument.h"
+#include <QAxObject>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QMessageBox>
@@ -48,6 +50,9 @@ private:
   QStringList m_sheetNames;
   QString m_fileSize;
   qint64 m_rawFileSize;
+  QAxObject *m_excel;
+  QAxObject *m_workbook;
+  QAxObject *m_worksheet;
 
   void processCell(QString sheetName);
   void processExcel(QString sheetName);

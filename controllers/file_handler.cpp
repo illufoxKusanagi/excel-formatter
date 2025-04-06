@@ -1,6 +1,11 @@
 #include "file_handler.h"
 
-FileHandler::FileHandler() {}
+FileHandler::FileHandler() {
+  m_excel = new QAxObject("Excel.Application", this);
+  m_excel->setProperty("Visible", false);
+  m_workbook = nullptr;
+  m_worksheet = nullptr;
+}
 
 FileHandler::~FileHandler() { cleanupDocument(); }
 
@@ -112,40 +117,38 @@ void FileHandler::convertCell(const int row, const int col,
 
 void FileHandler::handleSaveFile(const QString savePath) {
   if (!savePath.isEmpty()) {
-    if (m_xlsx) {
-      emit saveProgressUpdate(0);
-      QTimer *timer = new QTimer(this);
-      int progress = 0;
-      connect(timer, &QTimer::timeout, [this, timer, progress]() mutable {
-        if (progress < 90) {
-          progress += 1;
-          emit saveProgressUpdate(progress);
-        }
-      });
-      QFutureWatcher<bool> *watcher = new QFutureWatcher<bool>(this);
-      connect(watcher, &QFutureWatcher<bool>::finished, [=]() {
-        timer->stop();
-        timer->deleteLater();
-        bool success = watcher->result();
-        emit saveProgressUpdate(99);
-        QThread::sleep(1);
-        emit saveCompleted(success, savePath);
-        watcher->deleteLater();
-        cleanupDocument();
-      });
-
-      const qint64 SIZE_THRESHOLD = 20 * 1024 * 1024; // 20 MB
-      if (m_rawFileSize > SIZE_THRESHOLD) {
-        timer->start(500);
-      } else {
-        timer->start(100);
+    emit saveProgressUpdate(0);
+    QTimer *timer = new QTimer(this);
+    int progress = 0;
+    connect(timer, &QTimer::timeout, [this, timer, progress]() mutable {
+      if (progress < 90) {
+        progress += 1;
+        emit saveProgressUpdate(progress);
       }
-      QFuture<bool> future = QtConcurrent::run(
-          [this, savePath]() { return m_xlsx->saveAs(savePath); });
-      watcher->setFuture(future);
+    });
+    QFutureWatcher<bool> *watcher = new QFutureWatcher<bool>(this);
+    connect(watcher, &QFutureWatcher<bool>::finished, [=]() {
+      timer->stop();
+      timer->deleteLater();
+      bool success = watcher->result();
+      emit saveProgressUpdate(99);
+      QThread::sleep(1);
+      emit saveCompleted(success, savePath);
+      watcher->deleteLater();
+      cleanupDocument();
+    });
+
+    const qint64 SIZE_THRESHOLD = 20 * 1024 * 1024; // 20 MB
+    if (m_rawFileSize > SIZE_THRESHOLD) {
+      timer->start(500);
     } else {
-      emit saveCompleted(false, "");
+      timer->start(100);
     }
+    QFuture<bool> future = QtConcurrent::run(
+        [this, savePath]() { return m_xlsx->saveAs(savePath); });
+    watcher->setFuture(future);
+  } else {
+    emit saveCompleted(false, "");
   }
 }
 
@@ -187,7 +190,7 @@ void FileHandler::clearMemoryCache() {
 void FileHandler::pauseProcessing() {
   QMutexLocker locker(&g_mutex);
   g_paused = true;
-  // g_pauseCondition.wait(&g_mutex, 1000);
+  g_pauseCondition.wait(&g_mutex);
 }
 void FileHandler::resumeProcessing() {
   QMutexLocker locker(&g_mutex);
