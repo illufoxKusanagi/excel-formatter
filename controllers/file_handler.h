@@ -50,9 +50,6 @@ private:
   QStringList m_sheetNames;
   QString m_fileSize;
   qint64 m_rawFileSize;
-  QAxObject *m_excel;
-  QAxObject *m_workbook;
-  QAxObject *m_worksheet;
 
   void processCell(QString sheetName);
   void processExcel(QString sheetName);
@@ -64,6 +61,7 @@ private:
   QString getHumanReadableSize(qint64 bytes);
   void pauseProcessing();
   void resumeProcessing();
+  void sortByColumn(const QString &sheetName, int columnIndex);
 };
 
 #endif // FILE_HANDLER_H

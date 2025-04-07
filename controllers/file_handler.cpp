@@ -1,11 +1,6 @@
 #include "file_handler.h"
 
-FileHandler::FileHandler() {
-  m_excel = new QAxObject("Excel.Application", this);
-  m_excel->setProperty("Visible", false);
-  m_workbook = nullptr;
-  m_worksheet = nullptr;
-}
+FileHandler::FileHandler() {}
 
 FileHandler::~FileHandler() { cleanupDocument(); }
 
@@ -34,6 +29,9 @@ void FileHandler::procesFile(QString filePath) {
         emit processingCanceled();
         emit processingFinished();
         return;
+      }
+      if (!sheetNames[i].contains("Overview")) {
+        sortByColumn(sheetNames[i], 3);
       }
       int progress = 10 + (i + 1) * 80 / sheetNames.size();
       processCell(sheetNames[i]);
@@ -111,6 +109,62 @@ void FileHandler::convertCell(const int row, const int col,
 
     if (conversionOk) {
       m_xlsx->write(row, col, numValue, m_numFormat);
+    }
+  }
+}
+
+void FileHandler::sortByColumn(const QString &sheetName, int columnIndex) {
+  m_xlsx->selectSheet(sheetName);
+  QXlsx::CellRange range = m_xlsx->dimension();
+  int lastRow = range.lastRow();
+  int lastCol = range.lastColumn();
+  if (lastRow < 10) {
+    return;
+  }
+  struct CellData {
+    QVariant value;
+    QXlsx::Format format;
+  };
+  std::vector<std::vector<CellData>> rows;
+  for (int r = 6; r <= lastRow; ++r) {
+    std::vector<CellData> rowCells;
+    rowCells.reserve(lastCol);
+    for (int c = 1; c <= lastCol; ++c) {
+      QVariant val = m_xlsx->read(r, c);
+      QXlsx::Cell *cell = m_xlsx->cellAt(r, c).get();
+      if (cell) {
+        QVariant val = cell->value();
+        QXlsx::Format fmt = cell->format();
+        rowCells.push_back({val, fmt});
+      } else {
+        rowCells.push_back({QVariant(), QXlsx::Format()});
+      }
+    }
+    rows.push_back(rowCells);
+  }
+  std::sort(rows.begin(), rows.end(),
+            [columnIndex](const std::vector<CellData> &a,
+                          const std::vector<CellData> &b) {
+              const QVariant &valA = a[columnIndex - 1].value;
+              const QVariant &valB = b[columnIndex - 1].value;
+
+              // Try numeric comparison first
+              bool okA = false;
+              bool okB = false;
+              double numA = valA.toDouble(&okA);
+              double numB = valB.toDouble(&okB);
+
+              if (okA && okB) {
+                return numA < numB;
+              }
+              return valA.toString().compare(valB.toString(),
+                                             Qt::CaseInsensitive) < 0;
+            });
+  for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
+    int outRow = 6 + i;
+    for (int c = 1; c <= lastCol; ++c) {
+      const auto &cellData = rows[i][c - 1];
+      m_xlsx->write(outRow, c, cellData.value, cellData.format);
     }
   }
 }
