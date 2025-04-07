@@ -3,6 +3,7 @@
 
 #include "../controllers/file_handler.h"
 #include "xlsxdocument.h"
+#include <QCheckBox>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileDialog>
@@ -31,6 +32,7 @@ class MainWindow : public QMainWindow {
 private slots:
   void getFile();
   void cancelProcessing();
+  void onProcessButtonClicked();
 
 public:
   MainWindow(QWidget *parent = nullptr);
@@ -49,8 +51,13 @@ private:
   QProgressDialog *m_saveProgress;
   QThread m_thread;
   FileHandler *m_fileHandler;
+  QString *m_selectedFilePath;
+  QCheckBox *m_checkBox;
+  QPushButton *m_processButton;
   void processExcel();
   void handleExcelResult(const QStringList &sheetNames);
   void startExcelProcessing(const QString &filePath);
+  void setupConnections();
+  void connectSignalsAndSlots();
 };
 #endif // MAINWINDOW_H

@@ -6,23 +6,147 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
   QWidget *centralWidget = new QWidget(this);
   setCentralWidget(centralWidget);
+  QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget);
+  mainLayout->setContentsMargins(0, 0, 0, 0);
+  mainLayout->setSpacing(0);
 
-  QVBoxLayout *layout = new QVBoxLayout(centralWidget);
+  QWidget *dropFileWidget = new QWidget(this);
+  dropFileWidget->setAcceptDrops(true);
+  QWidget *buttonWidget = new QWidget(this);
+  QVBoxLayout *layout = new QVBoxLayout(dropFileWidget);
+  QVBoxLayout *buttonLayout = new QVBoxLayout(buttonWidget);
   m_label = new QLabel("Drag and drop your excel file (.xlsx) here \n or press "
                        "the button to browse file",
                        this);
   m_label->setAlignment(Qt::AlignCenter);
-
   m_browseFileButton = new QPushButton("Browse file", this);
-
-  layout->addWidget(m_label);
-  layout->addWidget(m_browseFileButton);
-  connect(m_browseFileButton, &QPushButton::clicked, this,
-          &MainWindow::getFile);
-  setAcceptDrops(true);
 
   m_fileHandler = new FileHandler();
   m_fileHandler->moveToThread(&m_thread);
+  m_processButton = new QPushButton("Process file", this);
+  m_checkBox = new QCheckBox("Checkbox Button", this);
+
+  layout->addWidget(m_label);
+  layout->addWidget(m_browseFileButton);
+  layout->addWidget(m_processButton);
+  layout->addWidget(m_checkBox);
+
+  mainLayout->addWidget(dropFileWidget);
+
+  m_processButton->setVisible(false);
+  m_checkBox->setVisible(false);
+  connectSignalsAndSlots();
+  m_thread.start();
+}
+
+MainWindow::~MainWindow() {
+  // Properly shut down the thread
+  if (m_thread.isRunning()) {
+    m_thread.quit();
+    m_thread.wait(1000);
+    if (m_thread.isRunning()) {
+      m_thread.terminate();
+    }
+  }
+  if (m_progress) {
+    m_progress->close();
+    delete m_progress;
+    m_progress = nullptr;
+  }
+
+  if (m_saveProgress) {
+    m_saveProgress->close();
+    delete m_saveProgress;
+    m_saveProgress = nullptr;
+  }
+
+  delete m_fileHandler;
+  delete m_selectedFilePath;
+  delete m_label;
+  delete m_browseFileButton;
+  delete m_processButton;
+  delete m_checkBox;
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event) {
+  if (event->mimeData()->hasUrls()) {
+    event->acceptProposedAction();
+  }
+}
+
+void MainWindow::getFile() {
+  QString filePath = QFileDialog::getOpenFileName(nullptr, "Pilih file", "",
+                                                  "Excel Files (*.xlsx)");
+  if (filePath.isEmpty()) {
+    QMessageBox::warning(nullptr, "Error", "No file selected!");
+    return;
+  }
+  m_selectedFilePath = new QString(filePath);
+  m_label->setText("Selected file at: \n" + *m_selectedFilePath);
+  m_processButton->setVisible(true);
+  m_checkBox->setVisible(true);
+  // startExcelProcessing(filePath);
+}
+
+void MainWindow::dropEvent(QDropEvent *event) {
+  QList<QUrl> urls = event->mimeData()->urls();
+  if (urls.isEmpty())
+    return;
+  QString filePath = urls.first().toLocalFile();
+  m_selectedFilePath = new QString(filePath);
+  m_label->setText("Selected file at: \n" + *m_selectedFilePath);
+  m_processButton->setVisible(true);
+  m_checkBox->setVisible(true);
+  // startExcelProcessing(filePath);
+}
+
+void MainWindow::startExcelProcessing(const QString &filePath) {
+  m_progress =
+      new QProgressDialog("Loading Excel file...", "Cancel", 0, 100, this);
+  m_progress->setWindowModality(Qt::WindowModal);
+  m_progress->setValue(0);
+  m_progress->setMinimumDuration(0);
+  m_progress->show();
+  m_progress->setCancelButton(nullptr);
+  connect(m_progress, &QProgressDialog::canceled, this,
+          &MainWindow::cancelProcessing);
+  QMetaObject::invokeMethod(m_fileHandler, "procesFile", Qt::QueuedConnection,
+                            Q_ARG(QString, filePath));
+}
+
+void MainWindow::handleExcelResult(const QStringList &sheetNames) {
+  QMessageBox::information(
+      this, "Success",
+      "Data processed successfully! Now please save your file!");
+  QString savePath = QFileDialog::getSaveFileName(
+      this, "Save File", QDir::homePath(), "Excel Files (*.xlsx)");
+  m_saveProgress =
+      new QProgressDialog("Saving Excel file...", "Cancel", 0, 100, this);
+  m_saveProgress->setWindowModality(Qt::WindowModal);
+  m_saveProgress->setValue(0);
+  m_saveProgress->setMinimumDuration(0);
+  m_saveProgress->show();
+  m_saveProgress->setCancelButton(nullptr);
+  connect(m_saveProgress, &QProgressDialog::canceled, this,
+          &MainWindow::cancelProcessing);
+  QMetaObject::invokeMethod(m_fileHandler, "handleSaveFile",
+                            Qt::QueuedConnection, Q_ARG(QString, savePath));
+}
+
+void MainWindow::onProcessButtonClicked() {
+  if (m_selectedFilePath) {
+    startExcelProcessing(*m_selectedFilePath);
+  } else {
+    QMessageBox::warning(this, "Error", "No file selected!");
+  }
+}
+
+void MainWindow::connectSignalsAndSlots() {
+
+  connect(m_processButton, &QPushButton::clicked, this,
+          &MainWindow::onProcessButtonClicked);
+  connect(m_browseFileButton, &QPushButton::clicked, this,
+          &MainWindow::getFile);
 
   connect(m_fileHandler, &FileHandler::resultReady, this,
           &MainWindow::handleExcelResult);
@@ -70,79 +194,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
                   "Failed to save the file. Please try again later.");
             }
           });
-
-  m_thread.start();
-}
-
-void MainWindow::dragEnterEvent(QDragEnterEvent *event) {
-  if (event->mimeData()->hasUrls()) {
-    event->acceptProposedAction();
-  }
-}
-
-MainWindow::~MainWindow() {
-  // Properly shut down the thread
-  if (m_thread.isRunning()) {
-    m_thread.quit();
-    m_thread.wait(1000);
-    if (m_thread.isRunning()) {
-      m_thread.terminate();
-    }
-  }
-  if (m_progress) {
-    m_progress->close();
-    delete m_progress;
-    m_progress = nullptr;
-  }
-}
-
-void MainWindow::getFile() {
-  QString filePath = QFileDialog::getOpenFileName(nullptr, "Pilih file", "",
-                                                  "Excel Files (*.xlsx)");
-  if (filePath.isEmpty()) {
-    QMessageBox::warning(nullptr, "Error", "No file selected!");
-    return;
-  }
-  startExcelProcessing(filePath);
-}
-
-void MainWindow::startExcelProcessing(const QString &filePath) {
-  m_progress =
-      new QProgressDialog("Loading Excel file...", "Cancel", 0, 100, this);
-  m_progress->setWindowModality(Qt::WindowModal);
-  m_progress->setValue(0);
-  m_progress->setMinimumDuration(0);
-  m_progress->show();
-  connect(m_progress, &QProgressDialog::canceled, this,
-          &MainWindow::cancelProcessing);
-  QMetaObject::invokeMethod(m_fileHandler, "procesFile", Qt::QueuedConnection,
-                            Q_ARG(QString, filePath));
-}
-
-void MainWindow::handleExcelResult(const QStringList &sheetNames) {
-  QMessageBox::information(
-      this, "Success",
-      "Data processed successfully! Now please save your file!");
-  QString savePath = QFileDialog::getSaveFileName(
-      this, "Save File", QDir::homePath(), "Excel Files (*.xlsx)");
-  m_saveProgress =
-      new QProgressDialog("Saving Excel file...", "Cancel", 0, 100, this);
-  m_saveProgress->setWindowModality(Qt::WindowModal);
-  m_saveProgress->setValue(0);
-  m_saveProgress->setMinimumDuration(0);
-  m_saveProgress->show();
-  connect(m_saveProgress, &QProgressDialog::canceled, this,
-          &MainWindow::cancelProcessing);
-  QMetaObject::invokeMethod(m_fileHandler, "handleSaveFile",
-                            Qt::QueuedConnection, Q_ARG(QString, savePath));
-}
-
-void MainWindow::dropEvent(QDropEvent *event) {
-  QList<QUrl> urls = event->mimeData()->urls();
-  if (urls.isEmpty())
-    return;
-  QString filePath = urls.first().toLocalFile();
-  startExcelProcessing(filePath);
 }
 
 void MainWindow::cancelProcessing() {
