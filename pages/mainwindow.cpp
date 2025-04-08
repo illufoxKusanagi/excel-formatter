@@ -24,7 +24,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   m_fileHandler = new FileHandler();
   m_fileHandler->moveToThread(&m_thread);
   m_processButton = new QPushButton("Process file", this);
-  m_checkBox = new QCheckBox("Checkbox Button", this);
+  m_checkBox = new QCheckBox("Sort file", this);
+  m_checkBox->setChecked(false);
+  connect(m_checkBox, &QCheckBox::checkStateChanged, this,
+          &MainWindow::switchSortingOption);
 
   layout->addWidget(m_label);
   layout->addWidget(m_browseFileButton);
@@ -66,6 +69,17 @@ MainWindow::~MainWindow() {
   delete m_browseFileButton;
   delete m_processButton;
   delete m_checkBox;
+}
+
+void MainWindow::switchSortingOption() {
+  m_isSortingEnabled = m_checkBox->isChecked();
+  qDebug() << "Sorting option changed to:" << m_isSortingEnabled;
+  // if (m_isSortingEnabled) {
+  //   m_label->setText("Sorting enabled. \n Please select a file to process.");
+  // } else {
+  //   m_label->setText("Sorting disabled. \n Please select a file to
+  //   process.");
+  // }
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *event) {
@@ -111,7 +125,8 @@ void MainWindow::startExcelProcessing(const QString &filePath) {
   connect(m_progress, &QProgressDialog::canceled, this,
           &MainWindow::cancelProcessing);
   QMetaObject::invokeMethod(m_fileHandler, "procesFile", Qt::QueuedConnection,
-                            Q_ARG(QString, filePath));
+                            Q_ARG(QString, filePath),
+                            Q_ARG(bool, m_isSortingEnabled));
 }
 
 void MainWindow::handleExcelResult(const QStringList &sheetNames) {

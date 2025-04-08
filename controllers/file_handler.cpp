@@ -11,7 +11,7 @@ void FileHandler::cleanupDocument() {
   }
 }
 
-void FileHandler::procesFile(QString filePath) {
+void FileHandler::procesFile(QString filePath, bool isSortingEnabled) {
   m_isCanceled = false;
   emit progressUpdate(0);
   m_xlsx = new QXlsx::Document(filePath);
@@ -30,7 +30,8 @@ void FileHandler::procesFile(QString filePath) {
         emit processingFinished();
         return;
       }
-      if (!sheetNames[i].contains("Overview")) {
+      if (!sheetNames[i].contains("Overview") && isSortingEnabled) {
+        qDebug() << "Sorting sheet:" << sheetNames[i];
         sortByColumn(sheetNames[i], 3);
       }
       int progress = 10 + (i + 1) * 80 / sheetNames.size();
@@ -40,6 +41,8 @@ void FileHandler::procesFile(QString filePath) {
   }
   emit resultReady(sheetNames);
   emit progressUpdate(99);
+  QThread::sleep(3);
+  emit progressUpdate(100);
   QThread::sleep(3);
   emit processingFinished();
 }

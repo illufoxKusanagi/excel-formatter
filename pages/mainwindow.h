@@ -33,6 +33,7 @@ private slots:
   void getFile();
   void cancelProcessing();
   void onProcessButtonClicked();
+  void switchSortingOption();
 
 public:
   MainWindow(QWidget *parent = nullptr);
@@ -54,6 +55,7 @@ private:
   QString *m_selectedFilePath;
   QCheckBox *m_checkBox;
   QPushButton *m_processButton;
+  bool m_isSortingEnabled = false;
   void processExcel();
   void handleExcelResult(const QStringList &sheetNames);
   void startExcelProcessing(const QString &filePath);

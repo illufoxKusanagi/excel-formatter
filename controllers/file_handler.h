@@ -22,7 +22,7 @@ class FileHandler : public QObject {
 
 public slots:
   void cancelProcess();
-  void procesFile(const QString filePath);
+  void procesFile(const QString filePath, bool isSortingEnabled = false);
   void handleSaveFile(const QString savePath);
 
 signals:
