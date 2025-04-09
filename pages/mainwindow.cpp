@@ -72,6 +72,12 @@ MainWindow::~MainWindow() {
 
 void MainWindow::switchSortingOption() {
   m_isSortingEnabled = m_checkBox->isChecked();
+  // if (m_isSortingEnabled) {
+  //   m_label->setText("Sorting enabled. \n Please select a file to process.");
+  // } else {
+  //   m_label->setText("Sorting disabled. \n Please select a file to
+  //   process.");
+  // }
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *event) {
@@ -202,10 +208,14 @@ void MainWindow::connectSignalsAndSlots() {
 }
 
 void MainWindow::cancelProcessing() {
+  // 1. Immediately pause the worker
   QMetaObject::invokeMethod(m_fileHandler, "pauseProcessing",
                             Qt::QueuedConnection);
+  // Store which progress dialog triggered the cancellation
   QProgressDialog *activeProgress = qobject_cast<QProgressDialog *>(sender());
   bool isSaveProgress = (activeProgress == m_saveProgress);
+
+  // 2. Ask user whether to continue or forcibly cancel
   int ret = QMessageBox::warning(
       this, tr("Warning!"),
       tr("Your file is processed in background.\n"
@@ -213,9 +223,11 @@ void MainWindow::cancelProcessing() {
       QMessageBox::Yes | QMessageBox::No);
 
   if (ret == QMessageBox::Yes) {
+    // User confirmed the forced cancellation
     QMetaObject::invokeMethod(m_fileHandler, "cancelProcess",
                               Qt::QueuedConnection);
     if (m_thread.isRunning()) {
+      // Terminate the thread
       m_thread.requestInterruption();
       m_thread.terminate();
       m_thread.wait(1000);
@@ -223,8 +235,12 @@ void MainWindow::cancelProcessing() {
                                "File processing has been canceled by user");
     }
   } else if (ret == QMessageBox::No) {
+    // User wants to continue
+    // 3. Tell the worker to resume processing
     QMetaObject::invokeMethod(m_fileHandler, "resumeProcessing",
                               Qt::QueuedConnection);
+
+    // 4. Restore the progress dialog
     if (isSaveProgress && m_saveProgress) {
       connect(m_saveProgress, &QProgressDialog::canceled, this,
               &MainWindow::cancelProcessing);

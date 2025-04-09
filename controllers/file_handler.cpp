@@ -150,6 +150,8 @@ void FileHandler::sortByColumn(const QString &sheetName, int columnIndex) {
                           const std::vector<CellData> &b) {
               const QVariant &valA = a[columnIndex - 1].value;
               const QVariant &valB = b[columnIndex - 1].value;
+
+              // Try numeric comparison first
               bool okA = false;
               bool okB = false;
               double numA = valA.toDouble(&okA);
@@ -193,7 +195,7 @@ void FileHandler::handleSaveFile(const QString savePath) {
       cleanupDocument();
     });
 
-    const qint64 SIZE_THRESHOLD = 20 * 1024 * 1024;
+    const qint64 SIZE_THRESHOLD = 20 * 1024 * 1024; // 20 MB
     if (m_rawFileSize > SIZE_THRESHOLD) {
       timer->start(500);
     } else {
