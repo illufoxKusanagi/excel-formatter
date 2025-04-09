@@ -4,6 +4,7 @@
 /QXlsx
 /output
 .gitignore
+dummy.txt
 
 # C++ objects and libs
 *.slo
