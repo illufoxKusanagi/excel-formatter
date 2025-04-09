@@ -3,6 +3,7 @@
 
 #include "../controllers/file_handler.h"
 #include "xlsxdocument.h"
+#include <QCheckBox>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileDialog>
@@ -31,6 +32,8 @@ class MainWindow : public QMainWindow {
 private slots:
   void getFile();
   void cancelProcessing();
+  void onProcessButtonClicked();
+  void switchSortingOption();
 
 public:
   MainWindow(QWidget *parent = nullptr);
@@ -41,16 +44,22 @@ protected:
   void dropEvent(QDropEvent *event) override;
 
 private:
-  QLabel *label;
-  QPushButton *button;
-  QSlider *qualitySlider;
-  QSpinBox *qualityValue;
-  QProgressDialog *progress;
-  QProgressDialog *saveProgress;
-  QThread thread;
-  FileHandler *fileHandler;
+  QLabel *m_label;
+  QPushButton *m_browseFileButton;
+  QSlider *m_qualitySlider;
+  QSpinBox *m_qualityValue;
+  QProgressDialog *m_progress;
+  QProgressDialog *m_saveProgress;
+  QThread m_thread;
+  FileHandler *m_fileHandler;
+  QString *m_selectedFilePath;
+  QCheckBox *m_checkBox;
+  QPushButton *m_processButton;
+  bool m_isSortingEnabled = false;
   void processExcel();
   void handleExcelResult(const QStringList &sheetNames);
   void startExcelProcessing(const QString &filePath);
+  void setupConnections();
+  void connectSignalsAndSlots();
 };
 #endif // MAINWINDOW_H

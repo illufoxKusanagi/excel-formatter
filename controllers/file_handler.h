@@ -2,9 +2,11 @@
 #define FILE_HANDLER_H
 
 #include "xlsxdocument.h"
+#include <QAxObject>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QMessageBox>
@@ -20,7 +22,7 @@ class FileHandler : public QObject {
 
 public slots:
   void cancelProcess();
-  void procesFile(const QString filePath);
+  void procesFile(const QString filePath, bool isSortingEnabled = false);
   void handleSaveFile(const QString savePath);
 
 signals:
@@ -34,17 +36,21 @@ signals:
 public:
   FileHandler();
   ~FileHandler();
+  static bool g_paused;
+  static QMutex g_mutex;
+  static QWaitCondition g_pauseCondition;
 
 private:
   bool m_isCanceled = false;
   QXlsx::Document *m_xlsx = nullptr;
-  QString cellString;
-  QString normalized;
-  QXlsx::Format numFormat;
+  QString m_cellString;
+  QString m_normalizedCell;
+  QXlsx::Format m_numFormat;
   QList<QFutureWatcher<void> *> m_watchers;
   QStringList m_sheetNames;
   QString m_fileSize;
   qint64 m_rawFileSize;
+
   void processCell(QString sheetName);
   void processExcel(QString sheetName);
   void cleanupDocument();
@@ -53,6 +59,9 @@ private:
                          QVector<int> columnsToCheck);
   void convertCell(const int row, const int col, const QVariant value);
   QString getHumanReadableSize(qint64 bytes);
+  void pauseProcessing();
+  void resumeProcessing();
+  void sortByColumn(const QString &sheetName, int columnIndex);
 };
 
 #endif // FILE_HANDLER_H

@@ -11,11 +11,11 @@ void FileHandler::cleanupDocument() {
   }
 }
 
-void FileHandler::procesFile(QString filePath) {
+void FileHandler::procesFile(QString filePath, bool isSortingEnabled) {
   m_isCanceled = false;
   emit progressUpdate(0);
   m_xlsx = new QXlsx::Document(filePath);
-  numFormat.setNumberFormat("#,##0.00");
+  m_numFormat.setNumberFormat("#,##0.00");
   bool success = m_xlsx->load();
   m_rawFileSize = QFileInfo(filePath).size();
   m_fileSize = getHumanReadableSize(m_rawFileSize);
@@ -30,6 +30,10 @@ void FileHandler::procesFile(QString filePath) {
         emit processingFinished();
         return;
       }
+      if (!sheetNames[i].contains("Overview") && isSortingEnabled) {
+        qDebug() << "Sorting sheet:" << sheetNames[i];
+        sortByColumn(sheetNames[i], 3);
+      }
       int progress = 10 + (i + 1) * 80 / sheetNames.size();
       processCell(sheetNames[i]);
       emit progressUpdate(progress);
@@ -37,6 +41,8 @@ void FileHandler::procesFile(QString filePath) {
   }
   emit resultReady(sheetNames);
   emit progressUpdate(99);
+  QThread::sleep(3);
+  emit progressUpdate(100);
   QThread::sleep(3);
   emit processingFinished();
 }
@@ -84,11 +90,11 @@ void FileHandler::processCell(QString sheetName) {
 
 void FileHandler::convertCell(const int row, const int col,
                               const QVariant value) {
-  cellString = value.toString();
+  m_cellString = value.toString();
   bool potentiallyNumeric = true;
-  bool isNegative = !cellString.isEmpty() && cellString[0] == '-';
-  for (int i = 0; i < cellString.length(); i++) {
-    QChar c = cellString[i];
+  bool isNegative = !m_cellString.isEmpty() && m_cellString[0] == '-';
+  for (int i = 0; i < m_cellString.length(); i++) {
+    QChar c = m_cellString[i];
     if ((c == '-' && i == 0) || c == "0") {
       continue;
     }
@@ -99,73 +105,107 @@ void FileHandler::convertCell(const int row, const int col,
   }
 
   if (potentiallyNumeric) {
-    normalized = cellString;
-    normalized.replace(',', '.');
+    m_normalizedCell = m_cellString;
+    m_normalizedCell.replace(',', '.');
     bool conversionOk = false;
-    double numValue = normalized.toDouble(&conversionOk);
+    double numValue = m_normalizedCell.toDouble(&conversionOk);
 
     if (conversionOk) {
-      m_xlsx->write(row, col, numValue, numFormat);
+      m_xlsx->write(row, col, numValue, m_numFormat);
+    }
+  }
+}
+
+void FileHandler::sortByColumn(const QString &sheetName, int columnIndex) {
+  m_xlsx->selectSheet(sheetName);
+  QXlsx::CellRange range = m_xlsx->dimension();
+  int lastRow = range.lastRow();
+  int lastCol = range.lastColumn();
+  if (lastRow < 10) {
+    return;
+  }
+  struct CellData {
+    QVariant value;
+    QXlsx::Format format;
+  };
+  std::vector<std::vector<CellData>> rows;
+  for (int r = 6; r <= lastRow; ++r) {
+    std::vector<CellData> rowCells;
+    rowCells.reserve(lastCol);
+    for (int c = 1; c <= lastCol; ++c) {
+      QVariant val = m_xlsx->read(r, c);
+      QXlsx::Cell *cell = m_xlsx->cellAt(r, c).get();
+      if (cell) {
+        QVariant val = cell->value();
+        QXlsx::Format fmt = cell->format();
+        rowCells.push_back({val, fmt});
+      } else {
+        rowCells.push_back({QVariant(), QXlsx::Format()});
+      }
+    }
+    rows.push_back(rowCells);
+  }
+  std::sort(rows.begin(), rows.end(),
+            [columnIndex](const std::vector<CellData> &a,
+                          const std::vector<CellData> &b) {
+              const QVariant &valA = a[columnIndex - 1].value;
+              const QVariant &valB = b[columnIndex - 1].value;
+
+              // Try numeric comparison first
+              bool okA = false;
+              bool okB = false;
+              double numA = valA.toDouble(&okA);
+              double numB = valB.toDouble(&okB);
+
+              if (okA && okB) {
+                return numA < numB;
+              }
+              return valA.toString().compare(valB.toString(),
+                                             Qt::CaseInsensitive) < 0;
+            });
+  for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
+    int outRow = 6 + i;
+    for (int c = 1; c <= lastCol; ++c) {
+      const auto &cellData = rows[i][c - 1];
+      m_xlsx->write(outRow, c, cellData.value, cellData.format);
     }
   }
 }
 
 void FileHandler::handleSaveFile(const QString savePath) {
   if (!savePath.isEmpty()) {
-    if (m_xlsx) {
-      emit saveProgressUpdate(0);
-
-      // Use a timer to simulate progress updates during saving
-      QTimer *timer = new QTimer(this);
-      int progress = 0;
-
-      // Connect timer to update progress
-      connect(timer, &QTimer::timeout, [this, timer, progress]() mutable {
-        if (progress < 90) {
-          progress += 1;
-          emit saveProgressUpdate(progress);
-        }
-      });
-
-      // Use QtConcurrent to perform save in a background thread
-      QFutureWatcher<bool> *watcher = new QFutureWatcher<bool>(this);
-
-      // When save completes in background thread, handle results
-      connect(watcher, &QFutureWatcher<bool>::finished, [=]() {
-        // Stop the timer
-        timer->stop();
-        timer->deleteLater();
-
-        // Get the save result
-        bool success = watcher->result();
-
-        // Show 100% progress
-        emit saveProgressUpdate(99);
-
-        // Notify completion
-        QThread::sleep(1);
-        emit saveCompleted(success, savePath);
-        // Clean up
-        watcher->deleteLater();
-        cleanupDocument();
-      });
-
-      const qint64 SIZE_THRESHOLD = 20 * 1024 * 1024; // 20 MB
-      if (m_rawFileSize > SIZE_THRESHOLD) {
-        timer->start(500);
-      } else {
-        timer->start(100);
+    emit saveProgressUpdate(0);
+    QTimer *timer = new QTimer(this);
+    int progress = 0;
+    connect(timer, &QTimer::timeout, [this, timer, progress]() mutable {
+      if (progress < 90) {
+        progress += 1;
+        emit saveProgressUpdate(progress);
       }
+    });
+    QFutureWatcher<bool> *watcher = new QFutureWatcher<bool>(this);
+    connect(watcher, &QFutureWatcher<bool>::finished, [=]() {
+      timer->stop();
+      timer->deleteLater();
+      bool success = watcher->result();
+      emit saveProgressUpdate(99);
+      QThread::sleep(1);
+      emit saveCompleted(success, savePath);
+      watcher->deleteLater();
+      cleanupDocument();
+    });
 
-      // Start the save operation in background thread
-      QFuture<bool> future = QtConcurrent::run(
-          [this, savePath]() { return m_xlsx->saveAs(savePath); });
-
-      // Set the future to watch
-      watcher->setFuture(future);
+    const qint64 SIZE_THRESHOLD = 20 * 1024 * 1024; // 20 MB
+    if (m_rawFileSize > SIZE_THRESHOLD) {
+      timer->start(500);
     } else {
-      emit saveCompleted(false, "");
+      timer->start(100);
     }
+    QFuture<bool> future = QtConcurrent::run(
+        [this, savePath]() { return m_xlsx->saveAs(savePath); });
+    watcher->setFuture(future);
+  } else {
+    emit saveCompleted(false, "");
   }
 }
 
@@ -189,31 +229,34 @@ void FileHandler::clearMemoryCache() {
   QCoreApplication::processEvents();
 
 #ifdef Q_OS_WIN
-  // Windows-specific memory release
   HANDLE process = GetCurrentProcess();
-
-  // Simpler approach using SetProcessWorkingSetSize
-  // This tells Windows to trim the working set to minimum
   SetProcessWorkingSetSize(process, (SIZE_T)-1, (SIZE_T)-1);
-
-  // Alternative approach if the above doesn't work
   SYSTEM_INFO sysInfo;
   GetSystemInfo(&sysInfo);
-
-  // Allocate and free a large block of memory to flush caches
   void *tempMem = VirtualAlloc(NULL, sysInfo.dwPageSize * 4096,
                                MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
   if (tempMem) {
-    // Write to the memory to ensure it's actually allocated
     memset(tempMem, 0, sysInfo.dwPageSize * 4096);
-    // Free it immediately
     VirtualFree(tempMem, 0, MEM_RELEASE);
   }
 #endif
-
-  // Force garbage collection in Qt
   QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-
-  // Give system time to reclaim memory
   QThread::msleep(5);
 }
+
+void FileHandler::pauseProcessing() {
+  QMutexLocker locker(&g_mutex);
+  g_paused = true;
+  g_pauseCondition.wait(&g_mutex);
+}
+void FileHandler::resumeProcessing() {
+  QMutexLocker locker(&g_mutex);
+  g_paused = false;
+  g_pauseCondition.wakeAll();
+}
+
+bool FileHandler::g_paused = false;
+
+QMutex FileHandler::g_mutex;
+
+QWaitCondition FileHandler::g_pauseCondition;
