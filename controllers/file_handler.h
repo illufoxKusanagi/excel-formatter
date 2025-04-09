@@ -24,6 +24,8 @@ public slots:
   void cancelProcess();
   void procesFile(const QString filePath, bool isSortingEnabled = false);
   void handleSaveFile(const QString savePath);
+  void pauseProcessing();
+  void resumeProcessing();
 
 signals:
   void resultReady(const QStringList &sheetNames);
@@ -59,8 +61,6 @@ private:
                          QVector<int> columnsToCheck);
   void convertCell(const int row, const int col, const QVariant value);
   QString getHumanReadableSize(qint64 bytes);
-  void pauseProcessing();
-  void resumeProcessing();
   void sortByColumn(const QString &sheetName, int columnIndex);
 };
 
